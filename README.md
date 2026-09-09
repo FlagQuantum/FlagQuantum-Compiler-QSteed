@@ -14,6 +14,8 @@ The first release deliberately supports one closed, testable slice:
 - deterministic QSteed basis lowering and SABRE routing;
 - restoration of QSteed's final physical layout to FlagQuantum's logical wire
   order.
+- Quafu calibration targets with QSteed subgraph selection and an ordered
+  `target_qubits` result; physical identifiers never replace logical QASM wires.
 
 Measurements, observables, symbolic parameters, custom matrices, dynamic
 operations, additional target fields, and larger physical topologies are

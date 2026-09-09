@@ -18,7 +18,9 @@ from flagquantum.ecosystem.extensions import (
 
 SUPPORTED_GATES = frozenset({"h", "x", "rx", "ry", "rz", "cx"})
 PARAMETERIZED_GATES = frozenset({"rx", "ry", "rz"})
-TARGET_FIELDS = frozenset({"basis_gates", "coupling_map"})
+TARGET_FIELDS = frozenset(
+    {"basis_gates", "coupling_map", "provider", "backend", "chip_info"}
+)
 _QSTEED_RANDOM_LOCK = Lock()
 
 
@@ -66,7 +68,7 @@ class QSteedCompiler:
         if not isinstance(program, CircuitIR):
             raise TypeError("QSteed compilation requires a FlagQuantum CircuitIR")
 
-        basis, edges = _validate(program, target)
+        basis, edges, execution_target = _validate(program, target)
         circuit = _to_quafu(program)
         compiled, final_layout = _transpile(
             circuit,
@@ -84,13 +86,16 @@ class QSteedCompiler:
                         Instruction("cx", (left, right)),
                     )
                 )
+        metadata = dict(program.metadata)
+        if execution_target is not None:
+            metadata["execution_target"] = execution_target
         result = CircuitIR(
             n_wires=program.n_wires,
             instructions=tuple(instructions),
             version=program.version,
             dtype=program.dtype,
             shape=program.shape,
-            metadata=program.metadata,
+            metadata=metadata,
         )
         _check_topology(result, edges)
         return result
@@ -105,9 +110,11 @@ def create_extension() -> QSteedCompiler:
     return QSteedCompiler()
 
 
-def _validate(
-    program: CircuitIR, target: Mapping[str, Any] | None
-) -> tuple[tuple[str, ...], tuple[tuple[int, int], ...]]:
+def _validate(program: CircuitIR, target: Mapping[str, Any] | None) -> tuple[
+    tuple[str, ...],
+    tuple[tuple[int, int], ...],
+    Mapping[str, Any] | None,
+]:
     target = dict(target or {})
     unknown = sorted(set(target) - TARGET_FIELDS)
     if unknown:
@@ -131,25 +138,58 @@ def _validate(
             if isinstance(value, bool) or not isinstance(value, Real):
                 raise TypeError("QSteed static circuit angles must be real numbers")
 
-    raw_basis = target.get("basis_gates", tuple(sorted(SUPPORTED_GATES)))
+    chip_info = target.get("chip_info")
+    if chip_info is not None:
+        if "basis_gates" in target or "coupling_map" in target:
+            raise ValueError(
+                "chip_info cannot be combined with basis_gates or coupling_map"
+            )
+        provider = str(target.get("provider", "")).strip().lower()
+        backend = str(target.get("backend", "")).strip()
+        if provider != "quafu" or not backend or not isinstance(chip_info, Mapping):
+            raise ValueError(
+                "QSteed chip_info targets require provider='quafu' and backend"
+            )
+        edges, target_qubits = _select_quafu_subgraph(chip_info, program.n_wires)
+        execution_target: Mapping[str, Any] | None = {
+            "provider": provider,
+            "backend": backend,
+            "compiler": None,
+            "target_qubits": list(target_qubits),
+        }
+        raw_basis = tuple(sorted(SUPPORTED_GATES))
+    else:
+        if "provider" in target or "backend" in target:
+            raise ValueError("provider and backend require chip_info")
+        edges = ()
+        execution_target = None
+        raw_basis = target.get("basis_gates", tuple(sorted(SUPPORTED_GATES)))
     basis = tuple(dict.fromkeys(str(gate).strip().lower() for gate in raw_basis))
     if not basis or any(gate not in SUPPORTED_GATES for gate in basis):
         raise ValueError("basis_gates must be a non-empty subset of h/x/rx/ry/rz/cx")
 
-    raw_edges = target.get("coupling_map", ())
-    edges = []
-    for raw_edge in raw_edges:
-        if not isinstance(raw_edge, Sequence) or isinstance(raw_edge, (str, bytes)):
-            raise TypeError("each coupling_map edge must contain two wire indices")
-        edge = tuple(raw_edge)
-        if len(edge) != 2:
-            raise ValueError("each coupling_map edge must contain exactly two wires")
-        left, right = (int(edge[0]), int(edge[1]))
-        if left == right or min(left, right) < 0 or max(left, right) >= program.n_wires:
-            raise ValueError(f"invalid coupling_map edge {(left, right)!r}")
-        normalized = tuple(sorted((left, right)))
-        if normalized not in edges:
-            edges.append(normalized)
+    if chip_info is None:
+        raw_edges = target.get("coupling_map", ())
+        parsed_edges = []
+        for raw_edge in raw_edges:
+            if not isinstance(raw_edge, Sequence) or isinstance(raw_edge, (str, bytes)):
+                raise TypeError("each coupling_map edge must contain two wire indices")
+            edge = tuple(raw_edge)
+            if len(edge) != 2:
+                raise ValueError(
+                    "each coupling_map edge must contain exactly two wires"
+                )
+            left, right = (int(edge[0]), int(edge[1]))
+            if (
+                left == right
+                or min(left, right) < 0
+                or max(left, right) >= program.n_wires
+            ):
+                raise ValueError(f"invalid coupling_map edge {(left, right)!r}")
+            normalized = tuple(sorted((left, right)))
+            if normalized not in parsed_edges:
+                parsed_edges.append(normalized)
+        edges = tuple(parsed_edges)
     if edges and set().union(*(set(edge) for edge in edges)) != set(
         range(program.n_wires)
     ):
@@ -158,7 +198,66 @@ def _validate(
         raise ValueError("coupling_map must be connected")
     if edges and set(basis) != SUPPORTED_GATES:
         raise ValueError("topology routing requires the fixed h/x/rx/ry/rz/cx basis")
-    return basis, tuple(sorted(edges))
+    return basis, tuple(sorted(edges)), execution_target
+
+
+def _select_quafu_subgraph(
+    chip_info: Mapping[str, Any], n_wires: int
+) -> tuple[tuple[tuple[int, int], ...], tuple[int, ...]]:
+    """Use QSteed's resource manager to select a connected physical subgraph."""
+
+    if n_wires == 1:
+        candidates = []
+        for label, info in dict(chip_info.get("qubits_info", {})).items():
+            index = info.get("index") if isinstance(info, Mapping) else None
+            if index is None:
+                digits = "".join(
+                    character for character in str(label) if character.isdigit()
+                )
+                index = int(digits) if digits else None
+            if index is not None:
+                fidelity = (
+                    float(info.get("fidelity", 0.0))
+                    if isinstance(info, Mapping)
+                    else 0.0
+                )
+                candidates.append((fidelity, -int(index), int(index)))
+        if not candidates:
+            raise ValueError("Quafu chip_info contains no usable physical qubit")
+        return (), (max(candidates)[2],)
+
+    structure = []
+    seen = set()
+    for coupler in dict(chip_info.get("couplers_info", {})).values():
+        if not isinstance(coupler, Mapping):
+            continue
+        raw_qubits = coupler.get("qubits_index")
+        if not isinstance(raw_qubits, Sequence) or len(raw_qubits) < 2:
+            continue
+        left, right = int(raw_qubits[0]), int(raw_qubits[1])
+        edge = tuple(sorted((left, right)))
+        fidelity = float(coupler.get("fidelity", 0.0))
+        if left == right or fidelity <= 0 or edge in seen:
+            continue
+        seen.add(edge)
+        structure.append([edge[0], edge[1], fidelity])
+    if not structure:
+        raise ValueError("Quafu chip_info contains no usable coupler")
+
+    from qsteed.resourcemanager.build_library import BuildLibrary
+    from qsteed.resourcemanager.utils import virtual_qubits
+
+    selector = BuildLibrary(fidelity_threshold=0.0)
+    connected = selector.connected_substructure(structure)
+    selected = selector.substructure(structure, connected, n_wires, max_iterations=1)[
+        0
+    ][1]
+    coupling, virtual_to_physical = virtual_qubits(selected)
+    target_qubits = tuple(int(virtual_to_physical[index]) for index in range(n_wires))
+    edges = tuple(
+        sorted({tuple(sorted((int(edge[0]), int(edge[1])))) for edge in coupling})
+    )
+    return edges, target_qubits
 
 
 def _to_quafu(program: CircuitIR):

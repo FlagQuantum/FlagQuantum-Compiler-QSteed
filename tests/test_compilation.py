@@ -75,6 +75,46 @@ def test_routing_is_deterministic():
     )
 
 
+def test_quafu_target_keeps_logical_wires_and_records_physical_order():
+    source = CircuitIR(3, (Instruction("cx", (0, 2)),), dtype="complex128")
+    chip_info = {
+        "qubits_info": {"Q10": {}, "Q11": {}, "Q12": {}, "Q20": {}},
+        "couplers_info": {
+            "C0": {"qubits_index": [10, 11], "fidelity": 0.999},
+            "C1": {"qubits_index": [11, 12], "fidelity": 0.998},
+            "C2": {"qubits_index": [12, 20], "fidelity": 0.7},
+        },
+    }
+    extension = create_extension()
+    extension.start(ExtensionConfig())
+    try:
+        compiled = extension.compile(
+            source,
+            target={
+                "provider": "quafu",
+                "backend": "ScQ-P10",
+                "chip_info": chip_info,
+            },
+        )
+    finally:
+        extension.close()
+
+    assert compiled.n_wires == 3
+    assert compiled.metadata["execution_target"] == {
+        "provider": "quafu",
+        "backend": "ScQ-P10",
+        "compiler": None,
+        "target_qubits": [10, 11, 12],
+    }
+    assert all(max(instruction.wires) < 3 for instruction in compiled.instructions)
+    torch.testing.assert_close(
+        Circuit.from_ir(compiled).state(),
+        Circuit.from_ir(source).state(),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
 @pytest.mark.parametrize("coupling_map", TOPOLOGIES, ids=("line", "ring", "star"))
 @pytest.mark.parametrize("seed", (3, 17, 41))
 def test_random_supported_circuits_preserve_semantics(seed, coupling_map):
