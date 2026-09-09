@@ -206,10 +206,7 @@ def _transpile(circuit, *, n_wires: int, basis: tuple[str, ...], edges):
         model = Model(backend=backend)
         layout = Layout()
         layout.generate_trivial_layout(n_wires)
-        used_wires = {wire for gate in circuit.gates for wire in gate.pos}
-        for wire in sorted(set(range(n_wires)) - used_wires):
-            circuit.x(wire)
-            circuit.x(wire)
+        _expose_idle_wires_to_qsteed(circuit, n_wires)
         passes.append(
             SabreLayout(
                 heuristic="distance",
@@ -240,6 +237,15 @@ def _transpile(circuit, *, n_wires: int, basis: tuple[str, ...], edges):
         return result, None
     final_layout = dict(transpiler.model.get_layout()["final_layout"].v2p)
     return result, final_layout
+
+
+def _expose_idle_wires_to_qsteed(circuit, n_wires: int) -> None:
+    """Prevent QSteed SABRE from omitting state for idle topology vertices."""
+
+    used_wires = {wire for gate in circuit.gates for wire in gate.pos}
+    for wire in sorted(set(range(n_wires)) - used_wires):
+        circuit.x(wire)
+        circuit.x(wire)
 
 
 def _from_quafu(circuit, basis: tuple[str, ...]) -> tuple[Instruction, ...]:

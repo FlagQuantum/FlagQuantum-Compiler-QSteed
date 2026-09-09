@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import torch
 from flagquantum import Circuit, CircuitIR, Instruction
@@ -7,6 +9,11 @@ from flagquantum_compiler_qsteed import create_extension
 
 BASIS = ("h", "x", "rx", "ry", "rz", "cx")
 LINE = ((0, 1), (1, 2))
+TOPOLOGIES = (
+    ((0, 1), (1, 2), (2, 3)),
+    ((0, 1), (1, 2), (2, 3), (3, 0)),
+    ((0, 1), (0, 2), (0, 3)),
+)
 
 
 def _compile(program, *, coupling_map=LINE):
@@ -56,7 +63,58 @@ def test_routed_circuit_obeys_topology_and_preserves_statevector():
 def test_routing_is_deterministic():
     source = CircuitIR(3, (Instruction("cx", (0, 2)),))
 
-    assert _compile(source).content_hash == _compile(source).content_hash
+    first = _compile(source)
+    second = _compile(source)
+
+    assert first.content_hash == second.content_hash
+    torch.testing.assert_close(
+        Circuit.from_ir(first).state(),
+        Circuit.from_ir(source).state(),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("coupling_map", TOPOLOGIES, ids=("line", "ring", "star"))
+@pytest.mark.parametrize("seed", (3, 17, 41))
+def test_random_supported_circuits_preserve_semantics(seed, coupling_map):
+    source = _random_circuit(seed)
+    compiled = _compile(source, coupling_map=coupling_map)
+    allowed = {tuple(sorted(edge)) for edge in coupling_map}
+
+    assert all(instruction.name in BASIS for instruction in compiled.instructions)
+    assert all(
+        tuple(sorted(instruction.wires)) in allowed
+        for instruction in compiled.instructions
+        if len(instruction.wires) == 2
+    )
+    torch.testing.assert_close(
+        Circuit.from_ir(compiled).state(),
+        Circuit.from_ir(source).state(),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def _random_circuit(seed):
+    generator = random.Random(seed)
+    instructions = []
+    for _ in range(16):
+        name = generator.choice(BASIS)
+        if name == "cx":
+            wires = tuple(generator.sample(range(4), 2))
+            instructions.append(Instruction(name, wires))
+        elif name in {"rx", "ry", "rz"}:
+            instructions.append(
+                Instruction(
+                    name,
+                    (generator.randrange(4),),
+                    {"theta": generator.uniform(-2.0, 2.0)},
+                )
+            )
+        else:
+            instructions.append(Instruction(name, (generator.randrange(4),)))
+    return CircuitIR(4, tuple(instructions), dtype="complex128")
 
 
 @pytest.mark.parametrize(
