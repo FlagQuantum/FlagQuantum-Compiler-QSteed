@@ -115,6 +115,73 @@ def test_quafu_target_keeps_logical_wires_and_records_physical_order():
     )
 
 
+def test_quafu_target_honors_explicit_ordered_physical_qubits():
+    source = CircuitIR(3, (Instruction("cx", (0, 2)),), dtype="complex128")
+    chip_info = {
+        "qubits_info": {"Q10": {}, "Q11": {}, "Q12": {}, "Q20": {}},
+        "couplers_info": {
+            "C0": {"qubits_index": [10, 11], "fidelity": 0.999},
+            "C1": {"qubits_index": [11, 12], "fidelity": 0.998},
+            "C2": {"qubits_index": [12, 20], "fidelity": 0.997},
+        },
+    }
+    extension = create_extension()
+    extension.start(ExtensionConfig())
+    try:
+        compiled = extension.compile(
+            source,
+            target={
+                "provider": "quafu",
+                "backend": "Dongling",
+                "chip_info": chip_info,
+                "target_qubits": [20, 12, 11],
+            },
+        )
+    finally:
+        extension.close()
+
+    assert compiled.metadata["execution_target"]["target_qubits"] == [20, 12, 11]
+    torch.testing.assert_close(
+        Circuit.from_ir(compiled).state(),
+        Circuit.from_ir(source).state(),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "target_qubits,error",
+    [
+        ([10, 10], "one unique physical qubit"),
+        ([10, 20], "connected calibrated subgraph"),
+        ([10, 99], "absent from chip_info"),
+        ([10, 11.5], "physical qubit integers"),
+    ],
+)
+def test_quafu_explicit_physical_qubits_fail_closed(target_qubits, error):
+    chip_info = {
+        "qubits_info": {"Q10": {}, "Q11": {}, "Q20": {}},
+        "couplers_info": {
+            "C0": {"qubits_index": [10, 11], "fidelity": 0.999},
+        },
+    }
+    extension = create_extension()
+    extension.start(ExtensionConfig())
+    try:
+        with pytest.raises((TypeError, ValueError), match=error):
+            extension.compile(
+                CircuitIR(2, (Instruction("cx", (0, 1)),)),
+                target={
+                    "provider": "quafu",
+                    "backend": "Dongling",
+                    "chip_info": chip_info,
+                    "target_qubits": target_qubits,
+                },
+            )
+    finally:
+        extension.close()
+
+
 @pytest.mark.parametrize("coupling_map", TOPOLOGIES, ids=("line", "ring", "star"))
 @pytest.mark.parametrize("seed", (3, 17, 41))
 def test_random_supported_circuits_preserve_semantics(seed, coupling_map):

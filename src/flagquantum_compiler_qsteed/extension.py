@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from numbers import Real
+from numbers import Integral, Real
 from threading import Lock
 from typing import Any, Mapping, Sequence
 
@@ -19,7 +19,14 @@ from flagquantum.ecosystem.extensions import (
 SUPPORTED_GATES = frozenset({"h", "x", "rx", "ry", "rz", "cx"})
 PARAMETERIZED_GATES = frozenset({"rx", "ry", "rz"})
 TARGET_FIELDS = frozenset(
-    {"basis_gates", "coupling_map", "provider", "backend", "chip_info"}
+    {
+        "basis_gates",
+        "coupling_map",
+        "provider",
+        "backend",
+        "chip_info",
+        "target_qubits",
+    }
 )
 _QSTEED_RANDOM_LOCK = Lock()
 
@@ -150,7 +157,12 @@ def _validate(program: CircuitIR, target: Mapping[str, Any] | None) -> tuple[
             raise ValueError(
                 "QSteed chip_info targets require provider='quafu' and backend"
             )
-        edges, target_qubits = _select_quafu_subgraph(chip_info, program.n_wires)
+        if "target_qubits" in target:
+            edges, target_qubits = _validate_quafu_subgraph(
+                chip_info, target["target_qubits"], program.n_wires
+            )
+        else:
+            edges, target_qubits = _select_quafu_subgraph(chip_info, program.n_wires)
         execution_target: Mapping[str, Any] | None = {
             "provider": provider,
             "backend": backend,
@@ -159,6 +171,8 @@ def _validate(program: CircuitIR, target: Mapping[str, Any] | None) -> tuple[
         }
         raw_basis = tuple(sorted(SUPPORTED_GATES))
     else:
+        if "target_qubits" in target:
+            raise ValueError("target_qubits requires Quafu chip_info")
         if "provider" in target or "backend" in target:
             raise ValueError("provider and backend require chip_info")
         edges = ()
@@ -199,6 +213,61 @@ def _validate(program: CircuitIR, target: Mapping[str, Any] | None) -> tuple[
     if edges and set(basis) != SUPPORTED_GATES:
         raise ValueError("topology routing requires the fixed h/x/rx/ry/rz/cx basis")
     return basis, tuple(sorted(edges)), execution_target
+
+
+def _validate_quafu_subgraph(
+    chip_info: Mapping[str, Any], raw_qubits: Any, n_wires: int
+) -> tuple[tuple[tuple[int, int], ...], tuple[int, ...]]:
+    """Validate an ordered physical mapping and express its topology logically."""
+
+    if not isinstance(raw_qubits, Sequence) or isinstance(raw_qubits, (str, bytes)):
+        raise TypeError("target_qubits must be an ordered sequence")
+    if any(
+        isinstance(qubit, bool) or not isinstance(qubit, Integral)
+        for qubit in raw_qubits
+    ):
+        raise TypeError("target_qubits must contain physical qubit integers")
+    target_qubits = tuple(int(qubit) for qubit in raw_qubits)
+    if len(target_qubits) != n_wires or len(set(target_qubits)) != n_wires:
+        raise ValueError(
+            "target_qubits must contain one unique physical qubit per logical wire"
+        )
+
+    available = set()
+    for label, info in dict(chip_info.get("qubits_info", {})).items():
+        index = info.get("index") if isinstance(info, Mapping) else None
+        if index is None:
+            digits = "".join(
+                character for character in str(label) if character.isdigit()
+            )
+            index = int(digits) if digits else None
+        if index is not None:
+            available.add(int(index))
+    missing = tuple(qubit for qubit in target_qubits if qubit not in available)
+    if missing:
+        raise ValueError(f"target_qubits are absent from chip_info: {missing}")
+    if n_wires == 1:
+        return (), target_qubits
+
+    logical_wire = {qubit: wire for wire, qubit in enumerate(target_qubits)}
+    edges = set()
+    for coupler in dict(chip_info.get("couplers_info", {})).values():
+        if not isinstance(coupler, Mapping):
+            continue
+        raw_edge = coupler.get("qubits_index")
+        if not isinstance(raw_edge, Sequence) or len(raw_edge) < 2:
+            continue
+        left, right = int(raw_edge[0]), int(raw_edge[1])
+        if (
+            left in logical_wire
+            and right in logical_wire
+            and float(coupler.get("fidelity", 0.0)) > 0
+        ):
+            edges.add(tuple(sorted((logical_wire[left], logical_wire[right]))))
+    logical_edges = tuple(sorted(edges))
+    if not logical_edges or not _connected(n_wires, logical_edges):
+        raise ValueError("target_qubits must form a connected calibrated subgraph")
+    return logical_edges, target_qubits
 
 
 def _select_quafu_subgraph(

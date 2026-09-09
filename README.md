@@ -14,13 +14,18 @@ The first release deliberately supports one closed, testable slice:
 - deterministic QSteed basis lowering and SABRE routing;
 - restoration of QSteed's final physical layout to FlagQuantum's logical wire
   order.
-- Quafu calibration targets with QSteed subgraph selection and an ordered
-  `target_qubits` result; physical identifiers never replace logical QASM wires.
+- Quafu calibration targets with automatic or explicitly ordered physical
+  subgraph selection and a `target_qubits` result; physical identifiers never
+  replace logical QASM wires.
 
 Measurements, observables, symbolic parameters, custom matrices, dynamic
 operations, additional target fields, and larger physical topologies are
 rejected. There is no compiler substitution or fallback. Omitting
 `coupling_map` explicitly requests basis compilation without topology routing.
+For a Quafu `chip_info` target, omitting `target_qubits` lets QSteed choose the
+subgraph. Supplying it locks the logical-to-physical order after existence,
+uniqueness, and connectivity validation; the plugin never substitutes another
+mapping.
 
 ## Install for development
 
