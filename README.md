@@ -29,13 +29,25 @@ mapping.
 
 ## Installation
 
-This release candidate requires FlagQuantum `>=0.2,<0.3` and the verified
-QSteed build `0.2.3+quafu.sqc`. It is not yet a one-command PyPI installation:
-FlagQuantum 0.2 and this QSteed build must be installed first. PyPI QSteed 0.2.2
-is not a supported substitute. Python 3.12 was used for the release checks;
-the declared Python 3.10–3.12 range still needs a full compatibility matrix.
+Install the published FlagQuantum release, the verified QSteed build, and
+this plugin in order:
 
-From this repository, after installing a compatible FlagQuantum checkout:
+```bash
+python -m pip install flagquantum==0.2.0
+python -m pip install "qsteed @ git+https://github.com/BAQIS-Quantum/qsteed.git@46584efde731aea9eec27b5466919b76fe5f3184"
+python -m pip install flagquantum-compiler-qsteed==0.1.1
+```
+
+The plugin requires FlagQuantum `>=0.2,<0.3` and QSteed
+`0.2.3+quafu.sqc`. FlagQuantum and the plugin are available on PyPI;
+the verified QSteed build still requires the pinned Git installation above.
+PyPI QSteed 0.2.2 is not a supported substitute. Installing FlagQuantum alone
+or its `quafu` extra does not install this compiler plugin.
+
+Python 3.12 is the verified release setup. The declared Python 3.10–3.12
+range still needs a full compatibility matrix.
+
+For development from this repository, install FlagQuantum as above, then run:
 
 ```bash
 python -m pip install -r requirements-qsteed.txt
@@ -43,10 +55,8 @@ python -m pip install -e ".[test]"
 python -m pytest -q
 ```
 
-The dependency file pins the verified upstream commit. The wheel declares its
-exact package version without embedding a Git URL. Once the plugin is published,
-users with both prerequisites already installed can use
-`python -m pip install flagquantum-compiler-qsteed==0.1.0`.
+Version 0.1.1 updates installation guidance for the published FlagQuantum 0.2.0
+release. Compiler behavior and dependency constraints are unchanged.
 
 ## Compile a circuit
 
