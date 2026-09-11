@@ -1,0 +1,3 @@
+include requirements-qsteed.txt
+include RELEASING.md
+recursive-include tests *.py

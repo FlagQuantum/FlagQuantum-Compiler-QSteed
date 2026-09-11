@@ -27,16 +27,50 @@ subgraph. Supplying it locks the logical-to-physical order after existence,
 uniqueness, and connectivity validation; the plugin never substitutes another
 mapping.
 
-## Install for development
+## Installation
 
-The QSteed dependency is pinned to commit `46584ef` from the
-`qsteed-for-quafu-sqc` line used to implement and verify this plugin.
+This release candidate requires FlagQuantum `>=0.2,<0.3` and the verified
+QSteed build `0.2.3+quafu.sqc`. It is not yet a one-command PyPI installation:
+FlagQuantum 0.2 and this QSteed build must be installed first. PyPI QSteed 0.2.2
+is not a supported substitute. Python 3.12 was used for the release checks;
+the declared Python 3.10–3.12 range still needs a full compatibility matrix.
+
+From this repository, after installing a compatible FlagQuantum checkout:
 
 ```bash
+python -m pip install -r requirements-qsteed.txt
 python -m pip install -e ".[test]"
+python -m pytest -q
 ```
 
-## Use
+The dependency file pins the verified upstream commit. The wheel declares its
+exact package version without embedding a Git URL. Once the plugin is published,
+users with both prerequisites already installed can use
+`python -m pip install flagquantum-compiler-qsteed==0.1.0`.
+
+## Compile a circuit
+
+This offline example needs no provider credentials and submits no hardware job:
+
+```python
+import flagquantum as fq
+
+circuit = fq.Circuit(3).h(0).cx(0, 2)
+compiled = fq.compile(
+    circuit,
+    compiler="qsteed",
+    target={
+        "basis_gates": ("h", "x", "rx", "ry", "rz", "cx"),
+        "coupling_map": ((0, 1), (1, 2)),
+    },
+)
+print(compiled.instructions)
+```
+
+See [release preparation](RELEASING.md) for publication prerequisites and
+artifact checks.
+
+## Advanced extension lifecycle
 
 ```python
 from flagquantum.ecosystem.extensions import (
@@ -45,6 +79,9 @@ from flagquantum.ecosystem.extensions import (
     discover_extensions,
 )
 
+import flagquantum as fq
+
+source_ir = fq.Circuit(3).h(0).cx(0, 2).to_ir()
 registry = discover_extensions("compiler")
 handle = registry.negotiate(
     "compiler",

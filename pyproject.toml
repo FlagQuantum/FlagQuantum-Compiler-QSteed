@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,10 +9,15 @@ description = "QSteed circuit compiler plugin for FlagQuantum"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     "flagquantum>=0.2,<0.3",
-    "qsteed @ git+https://github.com/BAQIS-Quantum/qsteed.git@46584efde731aea9eec27b5466919b76fe5f3184",
+    "qsteed==0.2.3+quafu.sqc",
 ]
+
+[project.urls]
+Repository = "https://github.com/FlagQuantum/FlagQuantum-Compiler-QSteed"
+Issues = "https://github.com/FlagQuantum/FlagQuantum-Compiler-QSteed/issues"
 
 [project.optional-dependencies]
 test = [
