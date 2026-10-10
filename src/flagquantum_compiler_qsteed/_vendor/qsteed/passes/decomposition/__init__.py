@@ -1,0 +1,1 @@
+"""Vendored QSteed decomposition support."""

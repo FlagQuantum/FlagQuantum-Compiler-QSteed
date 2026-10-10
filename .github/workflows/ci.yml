@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qsteed-plugin-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: Python ${{ matrix.python }} / FlagQuantum ${{ matrix.flagquantum }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+        flagquantum: ["0.2.0", "main"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Upgrade the packaging toolchain
+        run: python -m pip install --upgrade pip setuptools wheel
+      - name: Install the published FlagQuantum baseline
+        if: matrix.flagquantum == '0.2.0'
+        run: |
+          python -m pip install "torch>=2.10,<2.11" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install flagquantum==0.2.0
+      - name: Install FlagQuantum main
+        if: matrix.flagquantum == 'main'
+        run: |
+          python -m pip install "torch>=2.13,<2.14" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-build-isolation "flagquantum @ git+https://github.com/flagos-ai/FlagQuantum.git@main"
+      - name: Install the plugin and its compiler dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Prove external QSteed services were not installed
+        run: |
+          python - <<'PY'
+          from importlib.metadata import PackageNotFoundError, version
+
+          for distribution in ("qsteed", "quarkcircuit", "quarkstudio"):
+              try:
+                  installed = version(distribution)
+              except PackageNotFoundError:
+                  continue
+              raise SystemExit(f"unexpected dependency {distribution}=={installed}")
+          PY
+      - name: Run the offline compatibility suite
+        run: python -m pytest -q
+
+  distribution:
+    name: Distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip build twine
+      - name: Build wheel and source archive
+        run: python -m build
+      - name: Validate distribution descriptions
+        run: python -m twine check --strict dist/*
+      - name: Verify release metadata and vendored notices
+        run: |
+          python - <<'PY'
+          from email.parser import Parser
+          from pathlib import Path
+          import tarfile
+          from zipfile import ZipFile
+
+          wheel = next(Path("dist").glob("*.whl"))
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+              metadata_name = next(
+                  name for name in names if name.endswith(".dist-info/METADATA")
+              )
+              metadata = Parser().parsestr(archive.read(metadata_name).decode())
+              assert any(name.endswith("_vendor/qsteed/LICENSE") for name in names)
+              assert any(name.endswith("_vendor/qsteed/UPSTREAM.md") for name in names)
+
+          assert metadata["Name"] == "flagquantum-compiler-qsteed"
+          assert metadata["Version"] == "0.2.0"
+          assert metadata["Requires-Python"] == "<3.13,>=3.10"
+          requirements = metadata.get_all("Requires-Dist", [])
+          assert "flagquantum>=0.2" in requirements
+          assert not any(
+              requirement.lower().startswith(("qsteed", "quarkcircuit", "quarkstudio"))
+              for requirement in requirements
+          )
+
+          source = next(Path("dist").glob("*.tar.gz"))
+          with tarfile.open(source) as archive:
+              names = set(archive.getnames())
+              assert any(name.endswith("/THIRD_PARTY_NOTICES.md") for name in names)
+              assert any(name.endswith("/_vendor/qsteed/LICENSE") for name in names)
+              assert any(name.endswith("/_vendor/qsteed/UPSTREAM.md") for name in names)
+          PY
