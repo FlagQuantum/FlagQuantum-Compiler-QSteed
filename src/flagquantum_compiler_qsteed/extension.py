@@ -36,7 +36,7 @@ class QSteedCompiler:
 
     manifest = ExtensionManifest(
         name="qsteed",
-        version="0.1.1",
+        version="0.1.2",
         kind="compiler",
         capabilities=frozenset(
             {"circuit_ir", "static_circuit", "basis_gates", "coupling_map"}

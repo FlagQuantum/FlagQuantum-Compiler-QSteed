@@ -1,12 +1,12 @@
 # Release preparation
 
-Distribution: `flagquantum-compiler-qsteed` 0.1.1.
+Distribution: `flagquantum-compiler-qsteed` 0.1.2.
 Entry point: `flagquantum.extensions` / `compiler.qsteed`.
 
 ## Prerequisites
 
-- Install the published FlagQuantum baseline with
-  `python -m pip install flagquantum==0.2.0`.
+- Install the FlagQuantum version being validated, which must satisfy
+  `flagquantum>=0.2`. Release checks for 0.1.2 include FlagQuantum 0.3.
 - The verified QSteed build is 0.2.3+quafu.sqc at the commit in
   `requirements-qsteed.txt`. PyPI 0.2.2 failed the offline compilation suite
   with an upstream `NameError` during import in the Python 3.12 check.

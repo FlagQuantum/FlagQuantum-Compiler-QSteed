@@ -33,12 +33,12 @@ Install the published FlagQuantum release, the verified QSteed build, and
 this plugin in order:
 
 ```bash
-python -m pip install flagquantum==0.2.0
+python -m pip install "flagquantum>=0.2"
 python -m pip install "qsteed @ git+https://github.com/BAQIS-Quantum/qsteed.git@46584efde731aea9eec27b5466919b76fe5f3184"
-python -m pip install flagquantum-compiler-qsteed==0.1.1
+python -m pip install flagquantum-compiler-qsteed==0.1.2
 ```
 
-The plugin requires FlagQuantum `>=0.2,<0.3` and QSteed
+The plugin requires FlagQuantum `>=0.2` and QSteed
 `0.2.3+quafu.sqc`. FlagQuantum and the plugin are available on PyPI;
 the verified QSteed build still requires the pinned Git installation above.
 PyPI QSteed 0.2.2 is not a supported substitute. Installing FlagQuantum alone
@@ -55,8 +55,8 @@ python -m pip install -e ".[test]"
 python -m pytest -q
 ```
 
-Version 0.1.1 updates installation guidance for the published FlagQuantum 0.2.0
-release. Compiler behavior and dependency constraints are unchanged.
+Version 0.1.2 removes the FlagQuantum upper bound after compatibility testing
+against FlagQuantum 0.3. Compiler behavior is unchanged.
 
 ## Compile a circuit
 
