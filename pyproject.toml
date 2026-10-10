@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flagquantum-compiler-qsteed"
-version = "0.1.1"
+version = "0.1.2"
 description = "QSteed circuit compiler plugin for FlagQuantum"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-    "flagquantum>=0.2,<0.3",
+    "flagquantum>=0.2",
     "qsteed==0.2.3+quafu.sqc",
 ]
 
