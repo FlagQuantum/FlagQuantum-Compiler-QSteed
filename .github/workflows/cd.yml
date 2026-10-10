@@ -45,9 +45,6 @@ jobs:
     name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: release
-      url: https://pypi.org/project/flagquantum-compiler-qsteed/
     permissions:
       id-token: write
     steps:

@@ -48,7 +48,7 @@ values:
 - Owner: `FlagQuantum`
 - Repository: `FlagQuantum-Compiler-QSteed`
 - Workflow: `cd.yml`
-- Environment: `release`
+- Environment: leave blank (`Any`)
 
 Create a GitHub Release whose tag is either the package version or the same
 version prefixed with `v` (for example, `0.2.0` or `v0.2.0`). Publishing the
