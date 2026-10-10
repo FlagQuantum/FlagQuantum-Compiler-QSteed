@@ -2,8 +2,8 @@
 
 `flagquantum-compiler-qsteed` is an independently installed circuit compiler
 plugin for FlagQuantum. It translates FlagQuantum `CircuitIR` to a PyQuafu
-`QuantumCircuit`, invokes QSteed's real transpiler, and translates the compiled
-circuit back to `CircuitIR`.
+`QuantumCircuit`, invokes the vendored QSteed compiler core, and translates the
+compiled circuit back to `CircuitIR`.
 
 The first release deliberately supports one closed, testable slice:
 
@@ -29,34 +29,32 @@ mapping.
 
 ## Installation
 
-Install the published FlagQuantum release, the verified QSteed build, and
-this plugin in order:
+Install the plugin directly; pip resolves FlagQuantum and the compiler's small
+runtime dependency set automatically:
 
 ```bash
-python -m pip install "flagquantum>=0.2"
-python -m pip install "qsteed @ git+https://github.com/BAQIS-Quantum/qsteed.git@46584efde731aea9eec27b5466919b76fe5f3184"
-python -m pip install flagquantum-compiler-qsteed==0.1.2
+python -m pip install flagquantum-compiler-qsteed==0.2.0
 ```
 
-The plugin requires FlagQuantum `>=0.2` and QSteed
-`0.2.3+quafu.sqc`. FlagQuantum and the plugin are available on PyPI;
-the verified QSteed build still requires the pinned Git installation above.
-PyPI QSteed 0.2.2 is not a supported substitute. Installing FlagQuantum alone
-or its `quafu` extra does not install this compiler plugin.
+The plugin requires FlagQuantum `>=0.2`. It privately vendors the verified
+compiler-only closure of QSteed `0.2.3+quafu.sqc`; users do not install QSteed,
+QuarkCircuit, QuarkStudio, a database, or a web service. The copied source,
+upstream commit, license, and local namespace changes are recorded in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the packaged provenance
+file.
 
-Python 3.12 is the verified release setup. The declared Python 3.10–3.12
-range still needs a full compatibility matrix.
+Python 3.10–3.12 are the supported release range and are checked in CI against
+the oldest supported FlagQuantum release and current FlagQuantum `main`.
 
 For development from this repository, install FlagQuantum as above, then run:
 
 ```bash
-python -m pip install -r requirements-qsteed.txt
 python -m pip install -e ".[test]"
 python -m pytest -q
 ```
 
-Version 0.1.2 removes the FlagQuantum upper bound after compatibility testing
-against FlagQuantum 0.3. Compiler behavior is unchanged.
+Version 0.2.0 removes the external QSteed installation step while retaining the
+same compiler behavior and provenance.
 
 ## Compile a circuit
 

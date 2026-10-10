@@ -313,8 +313,8 @@ def _select_quafu_subgraph(
     if not structure:
         raise ValueError("Quafu chip_info contains no usable coupler")
 
-    from qsteed.resourcemanager.build_library import BuildLibrary
-    from qsteed.resourcemanager.utils import virtual_qubits
+    from ._vendor.qsteed.resourcemanager.build_library import BuildLibrary
+    from ._vendor.qsteed.resourcemanager.utils import virtual_qubits
 
     selector = BuildLibrary(fidelity_threshold=0.0)
     connected = selector.connected_substructure(structure)
@@ -349,14 +349,14 @@ def _to_quafu(program: CircuitIR):
 
 
 def _transpile(circuit, *, n_wires: int, basis: tuple[str, ...], edges):
-    from qsteed.backends.backend import Backend
-    from qsteed.passes.mapping.baselayout import Layout
-    from qsteed.passes.mapping.layout.sabre_layout import SabreLayout
-    from qsteed.passes.model import Model
-    from qsteed.passes.unroll.unroll_to_2qubit import UnrollTo2Qubit
-    from qsteed.passes.unroll.unroll_to_basis import UnrollToBasis
-    from qsteed.passflow.passflow import PassFlow
-    from qsteed.transpiler.transpiler import Transpiler
+    from ._vendor.qsteed.backends.backend import Backend
+    from ._vendor.qsteed.passes.mapping.baselayout import Layout
+    from ._vendor.qsteed.passes.mapping.layout.sabre_layout import SabreLayout
+    from ._vendor.qsteed.passes.model import Model
+    from ._vendor.qsteed.passes.unroll.unroll_to_2qubit import UnrollTo2Qubit
+    from ._vendor.qsteed.passes.unroll.unroll_to_basis import UnrollToBasis
+    from ._vendor.qsteed.passflow.passflow import PassFlow
+    from ._vendor.qsteed.transpiler.transpiler import Transpiler
 
     passes = [UnrollTo2Qubit()]
     if edges:

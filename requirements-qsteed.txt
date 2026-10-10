@@ -1,2 +1,0 @@
-# Verified upstream build; install before the plugin.
-qsteed @ git+https://github.com/BAQIS-Quantum/qsteed.git@46584efde731aea9eec27b5466919b76fe5f3184

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flagquantum-compiler-qsteed"
-version = "0.1.2"
+version = "0.2.0"
 description = "QSteed circuit compiler plugin for FlagQuantum"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -12,7 +12,10 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "flagquantum>=0.2",
-    "qsteed==0.2.3+quafu.sqc",
+    "networkx>=2.6.3",
+    "numpy>=1.20.3,<2",
+    "pyquafu==0.4.4",
+    "scipy>=1.8.1",
 ]
 
 [project.urls]
@@ -29,6 +32,12 @@ test = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+flagquantum_compiler_qsteed = [
+    "_vendor/qsteed/LICENSE",
+    "_vendor/qsteed/UPSTREAM.md",
+]
 
 [tool.black]
 line-length = 88
