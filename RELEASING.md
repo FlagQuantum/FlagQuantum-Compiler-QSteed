@@ -39,3 +39,19 @@ or `quarkstudio` distributions. No test or release check needs to submit a real
 QPU task.
 
 Publish only the exact validated wheel and sdist for the intended version.
+
+## Trusted publishing
+
+The PyPI project must configure a GitHub Trusted Publisher with these exact
+values:
+
+- Owner: `FlagQuantum`
+- Repository: `FlagQuantum-Compiler-QSteed`
+- Workflow: `cd.yml`
+- Environment: leave blank (`Any`)
+
+Create a GitHub Release whose tag is either the package version or the same
+version prefixed with `v` (for example, `0.2.0` or `v0.2.0`). Publishing the
+release builds one wheel and one source archive, validates them, publishes the
+same files to PyPI through OIDC, and attaches them to the GitHub Release. No
+PyPI token is stored in GitHub.
