@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.11", "3.12"]
+        python: ["3.12"]
         flagquantum: ["0.2.0", "main"]
     steps:
       - uses: actions/checkout@v7
@@ -78,6 +78,7 @@ jobs:
 
           assert metadata["Name"] == "flagquantum-compiler-qsteed"
           assert metadata["Version"] == "0.1.2"
+          assert metadata["Requires-Python"] == "<3.13,>=3.12"
           requirements = metadata.get_all("Requires-Dist", [])
           assert "flagquantum>=0.2" in requirements
           assert not any(

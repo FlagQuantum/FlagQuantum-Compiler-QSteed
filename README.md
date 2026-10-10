@@ -44,8 +44,11 @@ the verified QSteed build still requires the pinned Git installation above.
 PyPI QSteed 0.2.2 is not a supported substitute. Installing FlagQuantum alone
 or its `quafu` extra does not install this compiler plugin.
 
-Python 3.12 is the verified release setup. The declared Python 3.10–3.12
-range still needs a full compatibility matrix.
+The plugin requires Python 3.12. FlagQuantum itself supports additional Python
+versions, but the verified QSteed build depends on a QuarkCircuit release that
+is unavailable on Python 3.10 and 3.11. The plugin metadata rejects those
+environments instead of allowing an installation that its dependency resolver
+cannot satisfy.
 
 For development from this repository, install FlagQuantum as above, then run:
 

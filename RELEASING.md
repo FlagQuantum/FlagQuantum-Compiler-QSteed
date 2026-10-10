@@ -15,9 +15,11 @@ Entry point: `flagquantum.extensions` / `compiler.qsteed`.
   these same tests. Do not widen the dependency just to make resolution succeed.
 - Use the existing GitHub repository and PyPI project for this plugin. Never
   commit publishing credentials.
-- Pull requests run the offline suite on Python 3.10, 3.11, and 3.12 against
-  both the published FlagQuantum 0.2.0 baseline and FlagQuantum main. The
-  distribution job also verifies that release metadata retains
+- Pull requests run the offline suite on Python 3.12 against both the published
+  FlagQuantum 0.2.0 baseline and FlagQuantum main. The verified QSteed build's
+  QuarkCircuit dependency is unavailable on Python 3.10 and 3.11, so the plugin
+  must not claim those interpreters even though FlagQuantum itself supports
+  them. The distribution job verifies this Python boundary and retains
   `flagquantum>=0.2` without restoring the obsolete `<0.3` upper bound.
 
 ## Validate and build
